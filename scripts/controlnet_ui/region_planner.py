@@ -23,7 +23,6 @@ class RegionPlanner:
         with InputAccordion(
             value=False,
             label="Region Planner",
-            elem_classes=["cnet-region-planner"],
         ) as self.enabled:
             gr.HTML(
                 """

@@ -1,6 +1,49 @@
 import { A1111Context } from "./a1111_context.mjs";
 import { ControlNetUnit } from "./controlnet_unit.mjs";
 
+const COLORS = ["red", "green", "blue", "yellow", "purple"]
+
+class CanvasControlNetUnit {
+  /**
+   * ControlNetUnit on canvas
+   * @param {ControlNetUnit} unit
+   * @param {Number} x
+   * @param {Number} y
+   */
+  constructor(unit, x, y) {
+    this.unit = unit;
+    this.color = COLORS[unit.index];
+    this.canvasLayer = new Konva.Layer();
+    this.canvasObject = new Konva.Rect({
+      x, y,
+      width: 50,
+      height: 50,
+      fill: this.color,
+      opacity: 0.2,
+      id: unit.index,
+      draggable: true,
+    });
+    this.transformer = new Konva.Transformer({
+      nodes: [this.canvasObject],
+      keepRatio: false,
+      enabledAnchors: [
+        'top-left',
+        'top-right',
+        'bottom-left',
+        'bottom-right',
+        'middle-left',
+        'middle-right',
+        'top-center',
+        'bottom-center',
+      ],
+      rotateEnabled: false,
+      borderEnabled: true
+    });
+    this.canvasLayer.add(this.canvasObject);
+    this.canvasLayer.add(this.transformer);
+  }
+}
+
 export class RegionPlanner {
   /**
    * Region planner
@@ -23,21 +66,11 @@ export class RegionPlanner {
     this.context.height_slider.onChange(this.updateCanvasSize.bind(this));
     this.context.width_slider.onChange(this.updateCanvasSize.bind(this));
 
-    const layer = new Konva.Layer();
-    this.stage.add(layer);
-    const colors = ["red", "green", "blue", "yellow", "purple"];
-    for (let i = 0; i < 5; i++) {
-      const unit = new Konva.Rect({
-        x: 50 + 100 * i,
-        y: 50,
-        width: 50,
-        height: 50,
-        fill: colors[i],
-        opacity: 0.2,
-        id: i
-      });
-      layer.add(unit);
-    }
+    this.canvasUnits = this.units.map((unit) => {
+      const canvasUnit = new CanvasControlNetUnit(unit, 0, 0);
+      this.stage.add(canvasUnit.canvasLayer);
+      return canvasUnit;
+    });
   }
 
   getGenerationWidth() {

@@ -49,7 +49,8 @@ function childIndex(element) {
 }
 
 export class ControlNetUnit {
-  constructor(tab, accordion) {
+  constructor(index, tab, accordion) {
+    this.index = index;
     this.tab = tab;
     this.accordion = accordion;
     this.isImg2Img = tab.querySelector('.cnet-unit-enabled').id.includes('img2img');

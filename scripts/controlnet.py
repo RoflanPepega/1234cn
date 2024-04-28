@@ -25,6 +25,7 @@ from scripts.hook import ControlParams, UnetHook, HackedImageRNG
 from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOption
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
+from scripts.controlnet_ui.region_planner import RegionPlanner
 from scripts.logging import logger
 from scripts.supported_preprocessor import Preprocessor
 from scripts.animate_diff.batch import add_animate_diff_batch_input
@@ -412,6 +413,8 @@ class Script(scripts.Script, metaclass=(
         with gr.Group(elem_id=elem_id_tabname):
             with gr.Accordion(f"ControlNet {controlnet_version.version_flag}", open = False, elem_id="controlnet"):
                 photopea = Photopea() if not shared.opts.data.get("controlnet_disable_photopea_edit", False) else None
+                region_planner = RegionPlanner(max_models)
+                region_planner.render()
                 if max_models > 1:
                     with gr.Tabs(elem_id=f"{elem_id_tabname}_tabs"):
                         for i in range(max_models):
@@ -427,6 +430,8 @@ class Script(scripts.Script, metaclass=(
                         controls.append(state)
                 with gr.Accordion("Batch Options", open=False, elem_id="controlnet_batch_options"):
                     self.ui_batch_options(is_img2img, elem_id_tabname)
+
+                region_planner.register_callbacks()
 
         for i, ui_group in enumerate(ui_groups):
             infotext.register_unit(i, ui_group)
@@ -1410,6 +1415,8 @@ def on_ui_settings():
         False, "Disable photopea edit", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_photopea_warning", shared.OptionInfo(
         True, "Photopea popup warning", gr.Checkbox, {"interactive": True}, section=section))
+    shared.opts.add_option("controlnet_disable_region_planner", shared.OptionInfo(
+        False, "Disable region planner", gr.Checkbox, {"interactive": True}, section=section))
     shared.opts.add_option("controlnet_ignore_noninpaint_mask", shared.OptionInfo(
         False, "Ignore mask on ControlNet input image if control type is not inpaint",
         gr.Checkbox, {"interactive": True}, section=section))

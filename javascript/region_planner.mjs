@@ -239,7 +239,7 @@ export class SnapshotTaker {
       x: 0,
       y: 0,
       height: this.stage.height(),
-      width: this.stage.height(),
+      width: this.stage.width(),
     });
     layer.add(background);
     layer.add(rect);

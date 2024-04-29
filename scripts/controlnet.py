@@ -26,6 +26,7 @@ from scripts.enums import ControlModelType, StableDiffusionVersion, HiResFixOpti
 from scripts.controlnet_ui.controlnet_ui_group import ControlNetUiGroup, UiControlNetUnit
 from scripts.controlnet_ui.photopea import Photopea
 from scripts.controlnet_ui.region_planner import RegionPlanner
+from scripts.controlnet_core.image_util import prepare_mask, resize_and_pad
 from scripts.logging import logger
 from scripts.supported_preprocessor import Preprocessor
 from scripts.animate_diff.batch import add_animate_diff_batch_input
@@ -37,7 +38,7 @@ import cv2
 import numpy as np
 import torch
 
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image
 from scripts.lvminthin import lvmin_thin, nake_nms
 from scripts.controlnet_model_guess import build_model_by_guess, ControlModel
 from scripts.hook import torch_dfs
@@ -130,51 +131,6 @@ def image_dict_from_any(image) -> Optional[Dict[str, np.ndarray]]:
     return image
 
 
-def prepare_mask(
-    mask: Image.Image, p: processing.StableDiffusionProcessing
-) -> Image.Image:
-    """
-    Prepare an image mask for the inpainting process.
-
-    This function takes as input a PIL Image object and an instance of the 
-    StableDiffusionProcessing class, and performs the following steps to prepare the mask:
-
-    1. Convert the mask to grayscale (mode "L").
-    2. If the 'inpainting_mask_invert' attribute of the processing instance is True,
-       invert the mask colors.
-    3. If the 'mask_blur' attribute of the processing instance is greater than 0,
-       apply a Gaussian blur to the mask with a radius equal to 'mask_blur'.
-
-    Args:
-        mask (Image.Image): The input mask as a PIL Image object.
-        p (processing.StableDiffusionProcessing): An instance of the StableDiffusionProcessing class 
-                                                   containing the processing parameters.
-
-    Returns:
-        mask (Image.Image): The prepared mask as a PIL Image object.
-    """
-    mask = mask.convert("L")
-    if getattr(p, "inpainting_mask_invert", False):
-        mask = ImageOps.invert(mask)
-
-    if hasattr(p, 'mask_blur_x'):
-        if getattr(p, "mask_blur_x", 0) > 0:
-            np_mask = np.array(mask)
-            kernel_size = 2 * int(2.5 * p.mask_blur_x + 0.5) + 1
-            np_mask = cv2.GaussianBlur(np_mask, (kernel_size, 1), p.mask_blur_x)
-            mask = Image.fromarray(np_mask)
-        if getattr(p, "mask_blur_y", 0) > 0:
-            np_mask = np.array(mask)
-            kernel_size = 2 * int(2.5 * p.mask_blur_y + 0.5) + 1
-            np_mask = cv2.GaussianBlur(np_mask, (1, kernel_size), p.mask_blur_y)
-            mask = Image.fromarray(np_mask)
-    else:
-        if getattr(p, "mask_blur", 0) > 0:
-            mask = mask.filter(ImageFilter.GaussianBlur(p.mask_blur))
-
-    return mask
-
-
 def set_numpy_seed(p: processing.StableDiffusionProcessing) -> Optional[int]:
     """
     Set the random seed for NumPy based on the provided parameters.
@@ -232,10 +188,15 @@ def get_control(
     high_res_fix = isinstance(p, StableDiffusionProcessingTxt2Img) and getattr(p, 'enable_hr', False)
     h, w, hr_y, hr_x = Script.get_target_dimensions(p)
     input_image, resize_mode = Script.choose_input_image(p, unit, idx)
+
     if isinstance(input_image, list):
         assert unit.accepts_multiple_inputs() or unit.is_animate_diff_batch
         input_images = input_image
     else: # Following operations are only for single input image.
+        if unit.resize_to_effective_region:
+            assert unit.effective_region_mask is not None
+            input_image = resize_and_pad(input_image, unit.effective_region_mask)
+
         input_image = Script.try_crop_image_with_a1111_mask(p, unit, input_image, resize_mode)
         input_image = np.ascontiguousarray(input_image.copy()).copy() # safe numpy
         if unit.module == 'inpaint_only+lama' and resize_mode == external_code.ResizeMode.OUTER_FIT:

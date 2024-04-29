@@ -12,17 +12,20 @@ class CanvasControlNetUnit {
    */
   constructor(unit, x, y) {
     this.unit = unit;
-    this.color = COLORS[unit.index];
-    this.canvasLayer = new Konva.Layer();
+    this.canvasLayer = new Konva.Layer({
+      visible: unit.isEnabled(),
+    });
+
     this.canvasObject = new Konva.Rect({
       x, y,
       width: 50,
       height: 50,
-      fill: this.color,
-      opacity: 0.2,
+      fill: this.getColor(),
+      opacity: this.getOpacity(),
       id: unit.index,
-      draggable: true,
+      draggable: this.unit.isActive(),
     });
+
     this.transformer = new Konva.Transformer({
       nodes: [this.canvasObject],
       keepRatio: false,
@@ -37,10 +40,29 @@ class CanvasControlNetUnit {
         'bottom-center',
       ],
       rotateEnabled: false,
-      borderEnabled: true
+      borderEnabled: true,
+      visible: this.unit.isActive(),
     });
     this.canvasLayer.add(this.canvasObject);
     this.canvasLayer.add(this.transformer);
+
+    this.unit.onActiveStateChange((() => {
+      this.canvasObject.opacity(this.getOpacity());
+      this.canvasObject.draggable(this.unit.isActive());
+      this.transformer.visible(this.unit.isActive());
+    }).bind(this));
+
+    this.unit.onEnabledStateChange((() => {
+      this.canvasLayer.visible(unit.isEnabled())}
+    ).bind(this));
+  }
+
+  getColor() {
+    return COLORS[this.unit.index];
+  }
+
+  getOpacity() {
+    return this.unit.isActive() ? 1.0 : 0.3;
   }
 }
 

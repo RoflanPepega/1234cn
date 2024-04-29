@@ -70,6 +70,7 @@ export class ControlNetUnit {
     this.tabNav = tabs.querySelector('.tab-nav');
     this.tabIndex = childIndex(tab) - 1; // -1 because tab-nav is also at the same level.
 
+    this.activeStateChangeCallbacks = [];
     this.attachEnabledButtonListener();
     this.attachControlTypeRadioListener();
     this.attachTabNavChangeObserver();
@@ -163,6 +164,22 @@ export class ControlNetUnit {
     tabNavButton.appendChild(span);
   }
 
+  isActive() {
+    return this.getTabNavButton().classList.contains('selected');
+  }
+
+  onActiveStateChange(callback) {
+    this.activeStateChangeCallbacks.push(callback);
+  }
+
+  isEnabled() {
+    return this.enabledCheckbox.checked;
+  }
+
+  onEnabledStateChange(callback) {
+    this.enabledCheckbox.addEventListener('change', callback);
+  }
+
   attachEnabledButtonListener() {
     this.enabledCheckbox.addEventListener('change', () => {
       this.updateActiveState();
@@ -202,6 +219,7 @@ export class ControlNetUnit {
         if (mutation.type === 'childList') {
           this.updateActiveState();
           this.updateActiveControlType();
+          this.activeStateChangeCallbacks.forEach(cb => cb());
         }
       }
     }).observe(this.tabNav, { childList: true });

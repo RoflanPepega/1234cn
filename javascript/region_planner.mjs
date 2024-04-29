@@ -58,7 +58,7 @@ class CanvasControlNetUnit {
     this.text = new Konva.Text({
       x: this.canvasObject.x() + 4,
       y: this.canvasObject.y() + 4,
-      text: `${this.getGenerationWidth()} x ${this.getGenerationHeight()}`,
+      text: this.getDisplayText(),
       fontSize: 14,
       fill: "white",
       visible: this.unit.isActive(),
@@ -83,7 +83,7 @@ class CanvasControlNetUnit {
       this.text.setAttrs({
         x: this.canvasObject.x() + 4,
         y: this.canvasObject.y() + 4,
-        text: `${this.getGenerationWidth()} x ${this.getGenerationHeight()}`,
+        text: this.getDisplayText(),
       });
     });
   }
@@ -94,6 +94,10 @@ class CanvasControlNetUnit {
 
   getOpacity() {
     return this.unit.isActive() ? 1.0 : 0.3;
+  }
+
+  getDisplayText() {
+    return `Unit${this.unit.index}(${this.getGenerationWidth()} x ${this.getGenerationHeight()})`;
   }
 
   getGenerationWidth() {

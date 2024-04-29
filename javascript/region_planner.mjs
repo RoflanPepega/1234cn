@@ -2,6 +2,8 @@ import { A1111Context } from "./a1111_context.mjs";
 import { ControlNetUnit } from "./controlnet_unit.mjs";
 
 const COLORS = ["red", "green", "blue", "yellow", "purple"]
+const GENERATION_GRID_SIZE = 8;
+
 
 class CanvasControlNetUnit {
   /**
@@ -53,8 +55,8 @@ class CanvasControlNetUnit {
     }).bind(this));
 
     this.unit.onEnabledStateChange((() => {
-      this.canvasLayer.visible(unit.isEnabled())}
-    ).bind(this));
+      this.canvasLayer.visible(unit.isEnabled());
+    }).bind(this));
   }
 
   getColor() {
@@ -90,6 +92,7 @@ export class RegionPlanner {
 
     this.canvasUnits = this.units.map((unit) => {
       const canvasUnit = new CanvasControlNetUnit(unit, 0, 0);
+      canvasUnit.transformer.boundBoxFunc(this.boundBoxSnapToGrid.bind(this));
       this.stage.add(canvasUnit.canvasLayer);
       return canvasUnit;
     });
@@ -117,8 +120,24 @@ export class RegionPlanner {
     return Math.round(aspectRatio >= 1.0 ? this.size : this.size / aspectRatio);
   }
 
+  // canvas dim = generation dim * mapping_ratio
+  getCanvasMappingRatio() {
+    return this.getCanvasHeight() / this.getGenerationHeight();
+  }
+
   updateCanvasSize() {
     this.stage.width(this.getCanvasWidth());
     this.stage.height(this.getCanvasHeight());
+  }
+
+  boundBoxSnapToGrid(oldBox, newBox) {
+    const gridSize = GENERATION_GRID_SIZE * this.getCanvasMappingRatio();
+    newBox.width = Math.round(newBox.width / gridSize) * gridSize;
+    newBox.height = Math.round(newBox.height / gridSize) * gridSize;
+
+    if (newBox.width < gridSize) newBox.width = gridSize;
+    if (newBox.height < gridSize) newBox.height = gridSize;
+
+    return newBox;
   }
 }

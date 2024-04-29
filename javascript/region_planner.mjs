@@ -46,6 +46,21 @@ class CanvasControlNetUnit {
       opacity: this.getOpacity(),
       id: unit.index,
       draggable: this.unit.isActive(),
+      dragBoundFunc: (pos) => {
+        // pos contains the position the node is being dragged to
+        // Get the stage dimensions
+        const stageWidth = this.planner.stage.width();
+        const stageHeight = this.planner.stage.height();
+
+        // Get the shape dimensions
+        const shapeWidth = this.canvasObject.width() * this.canvasObject.scaleX();
+        const shapeHeight = this.canvasObject.height() * this.canvasObject.scaleY();
+
+        return {
+          x: clamp(pos.x, 0, stageWidth - shapeWidth),
+          y: clamp(pos.y, 0, stageHeight - shapeHeight),
+        };
+      },
     });
 
     this.transformer = new Konva.Transformer({
@@ -64,6 +79,39 @@ class CanvasControlNetUnit {
       rotateEnabled: false,
       borderEnabled: true,
       visible: this.unit.isActive(),
+      boundBoxFunc: (oldBox, newBox) => {
+        const ratio = this.planner.getCanvasMappingRatio()
+        const gridSize = GENERATION_GRID_SIZE * ratio;
+        const minCanvas = 64 * ratio;
+        const maxCanvas = 2048 * ratio;
+        const dimConstraint = (value) => {
+          return clamp(snapToMultipleOf(value, gridSize), minCanvas, maxCanvas);
+        };
+        const boundConstraintX = (value) => {
+          return clamp(value, 0, this.planner.stage.width());
+        };
+        const boundConstraintY = (value) => {
+          return clamp(value, 0, this.planner.stage.height());
+        };
+        // Make sure box snapped to grid.
+        const adjustedWidth = dimConstraint(newBox.width);
+        const adjustedHeight = dimConstraint(newBox.height);
+        const dw = adjustedWidth - newBox.width;
+        const dh = adjustedHeight - newBox.height;
+        const dx = newBox.x - oldBox.x;
+        const dy = newBox.y - oldBox.y;
+
+        newBox.x = newBox.x - (dx !== 0 ? dw : 0);
+        newBox.y = newBox.y - (dy !== 0 ? dh : 0);
+        newBox.width = adjustedWidth;
+        newBox.height = adjustedHeight;
+
+        newBox.x = boundConstraintX(newBox.x);
+        newBox.y = boundConstraintY(newBox.y);
+        newBox.width = boundConstraintX(newBox.x + newBox.width) - newBox.x;
+        newBox.height = boundConstraintY(newBox.y + newBox.height) - newBox.y;
+        return newBox;
+      }
     });
 
     this.text = new Konva.Text({
@@ -234,7 +282,6 @@ export class RegionPlanner {
 
     this.canvasUnits = this.units.map((unit) => {
       const canvasUnit = new CanvasControlNetUnit(unit, this, 0, 0);
-      canvasUnit.transformer.boundBoxFunc(this.boundBoxSnapToGrid.bind(this));
       this.stage.add(canvasUnit.canvasLayer);
       return canvasUnit;
     });
@@ -270,27 +317,5 @@ export class RegionPlanner {
   updateCanvasSize() {
     this.stage.width(this.getCanvasWidth());
     this.stage.height(this.getCanvasHeight());
-  }
-
-  boundBoxSnapToGrid(oldBox, newBox) {
-    const gridSize = GENERATION_GRID_SIZE * this.getCanvasMappingRatio();
-    const minCanvas = 64 * this.getCanvasMappingRatio();
-    const maxCanvas = 2048 * this.getCanvasMappingRatio();
-    function dimConstraint(value) {
-      return clamp(snapToMultipleOf(value, gridSize), minCanvas, maxCanvas);
-    }
-
-    const adjustedWidth = dimConstraint(newBox.width);
-    const adjustedHeight = dimConstraint(newBox.height);
-    const dw = adjustedWidth - newBox.width;
-    const dh = adjustedHeight - newBox.height;
-    const dx = newBox.x - oldBox.x;
-    const dy = newBox.y - oldBox.y;
-
-    newBox.x = newBox.x - (dx !== 0 ? dw : 0);
-    newBox.y = newBox.y - (dy !== 0 ? dh : 0);
-    newBox.width = adjustedWidth;
-    newBox.height = adjustedHeight;
-    return newBox;
   }
 }

@@ -207,6 +207,9 @@ class ControlNetUnit:
     # The effective region mask that unit's effect should be restricted to.
     effective_region_mask: Optional[np.ndarray] = None
 
+    # Whether to crop image to effective mask's bounding box.
+    resize_to_effective_region: bool = False
+
     # The tensor input for ipadapter. When this field is set in the API,
     # the base64string will be interpret by torch.load to reconstruct ipadapter
     # preprocessor output.
@@ -243,6 +246,7 @@ class ControlNetUnit:
             # provide much information when restoring the unit.
             "inpaint_crop_input_image",
             "effective_region_mask",
+            "resize_to_effective_region",
         ]
 
     @property

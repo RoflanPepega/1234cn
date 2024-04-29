@@ -293,10 +293,11 @@ class ControlNetUiGroup(object):
         self.batch_image_dir_state = None
         self.output_dir_state = None
         self.advanced_weighting = gr.State(None)
+        self.effective_region_mask = None
+        self.resize_to_effective_region = None
 
         # API-only fields
         self.ipadapter_input = gr.State(None)
-        self.effective_region_mask = gr.Image(value=None, visible=False)
 
         ControlNetUiGroup.all_ui_groups.append(self)
 
@@ -376,6 +377,13 @@ class ControlNetUiGroup(object):
                                 elem_classes=["cnet-mask-image"],
                                 interactive=True,
                             )
+
+                        self.effective_region_mask = gr.Image(
+                            value=None,
+                            visible=False,
+                            elem_classes=["cnet-effective-region-mask"],
+                            interactive=True,
+                        )
 
                 with gr.Tab(label="Batch") as self.batch_tab:
                     self.batch_image_dir = gr.Textbox(
@@ -492,6 +500,12 @@ class ControlNetUiGroup(object):
                 value=False,
                 elem_classes=["cnet-preview-as-input"],
                 visible=False,
+            )
+            self.resize_to_effective_region = gr.Checkbox(
+                label="Resize to effective region",
+                value=False,
+                elem_classes=["cnet-resize-to-effective-region"],
+                visible=True,
             )
 
         with gr.Row(elem_classes="controlnet_img2img_options"):
@@ -681,6 +695,8 @@ class ControlNetUiGroup(object):
             self.hr_option,
             self.save_detected_map,
             self.advanced_weighting,
+            self.effective_region_mask,
+            self.resize_to_effective_region,
         )
 
         unit = gr.State(self.default_unit)

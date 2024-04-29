@@ -379,7 +379,7 @@ class ControlNetUiGroup(object):
 
                         self.effective_region_mask = gr.Image(
                             value=None,
-                            visible=True,
+                            visible=False,
                             elem_classes=["cnet-effective-region-mask"],
                             interactive=True,
                         )

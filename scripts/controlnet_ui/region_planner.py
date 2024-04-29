@@ -27,7 +27,7 @@ class RegionPlanner:
             gr.HTML(
                 """
                 <div class="cnet-region-planner"></div>
-                <div class="cnet-region-planner-snapshot-canvas"></div>
+                <div class="cnet-region-planner-snapshot-canvas" hidden></div>
                 """
             )
 

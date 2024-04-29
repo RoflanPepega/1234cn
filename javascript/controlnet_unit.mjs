@@ -65,6 +65,7 @@ export class ControlNetUnit {
     this.generatedImageGroup = tab.querySelector('.cnet-generated-image-group');
     this.poseEditButton = tab.querySelector('.cnet-edit-pose');
     this.allowPreviewCheckbox = tab.querySelector('.cnet-allow-preview input');
+    this.effectiveRegionMaskImage = tab.querySelector(".cnet-effective-region-mask");
 
     const tabs = tab.parentNode;
     this.tabNav = tabs.querySelector('.tab-nav');

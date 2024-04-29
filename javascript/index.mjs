@@ -3,7 +3,7 @@ import { ControlNetUnit } from "./controlnet_unit.mjs";
 import { initControlNetModals } from "./modal.mjs";
 import { OpenposeEditor } from "./openpose_editor.mjs";
 import { loadPhotopea } from "./photopea.mjs";
-import { RegionPlanner } from "./region_planner.mjs";
+import { RegionPlanner, SnapshotTaker } from "./region_planner.mjs";
 
 (function () {
   const cnetAllAccordions = new Set();
@@ -19,10 +19,12 @@ import { RegionPlanner } from "./region_planner.mjs";
       unit.openposeEditor = openposeEditor;
       return unit;
     });
+    const snapshotTaker = new SnapshotTaker(accordion.querySelector('.cnet-region-planner-snapshot-canvas'));
     new RegionPlanner(
       accordion.querySelector('.cnet-region-planner'),
       units,
       a1111Context,
+      snapshotTaker,
     );
     initControlNetModals(accordion);
     loadPhotopea(accordion);

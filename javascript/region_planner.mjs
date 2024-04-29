@@ -1,5 +1,6 @@
 import { A1111Context } from "./a1111_context.mjs";
 import { ControlNetUnit } from "./controlnet_unit.mjs";
+import { setImageOnInput, b64toBlob } from "./image_util.mjs";
 
 const COLORS = ["red", "green", "blue", "yellow", "purple"]
 const GENERATION_GRID_SIZE = 8;
@@ -12,6 +13,13 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
 }
 
+function removePrefix(str, prefix) {
+  if (str.startsWith(prefix)) {
+    return str.slice(prefix.length);
+  }
+  return str;
+}
+
 class CanvasControlNetUnit {
   /**
    * ControlNetUnit on canvas
@@ -19,10 +27,13 @@ class CanvasControlNetUnit {
    * @param {RegionPlanner} planner
    * @param {Number} x
    * @param {Number} y
+   * @param {Number} [sendMaskTimeout] Optional.
    */
-  constructor(unit, planner, x, y) {
+  constructor(unit, planner, x, y, sendMaskTimeout) {
     this.unit = unit;
     this.planner = planner;
+    this.sendMaskTimeout = sendMaskTimeout || 1000;
+
     this.canvasLayer = new Konva.Layer({
       visible: unit.isEnabled(),
     });
@@ -85,7 +96,10 @@ class CanvasControlNetUnit {
         y: this.canvasObject.y() + 4,
         text: this.getDisplayText(),
       });
+      this.debouncedWriteMask();
     });
+
+    this.debouncedWriteMaskTimeout = null;
   }
 
   getColor() {
@@ -113,6 +127,85 @@ class CanvasControlNetUnit {
       GENERATION_GRID_SIZE,
     );
   }
+
+  getGenerationX() {
+    return snapToMultipleOf(
+      this.canvasObject.x() / this.planner.getCanvasMappingRatio(),
+      GENERATION_GRID_SIZE,
+    )
+  }
+
+  getGenerationY() {
+    return snapToMultipleOf(
+      this.canvasObject.y() / this.planner.getCanvasMappingRatio(),
+      GENERATION_GRID_SIZE,
+    )
+  }
+
+  toBase64Mask() {
+    return this.planner.snapshotTaker.snapshotUnit(this);
+  }
+
+  /**
+   * Write mask to ControlNetUnit.
+   */
+  debouncedWriteMask() {
+    clearTimeout(this.debouncedWriteMaskTimeout);
+    this.debouncedWriteMaskTimeout = setTimeout(() => {
+      const base64Mask = this.toBase64Mask();
+      const imageUpload = this.unit.effectiveRegionMaskImage.querySelector('input[type="file"]');
+      setImageOnInput(
+        imageUpload,
+        new File([
+          b64toBlob(removePrefix(base64Mask, "data:image/png;base64,"), "image/png")
+        ], "region_planner.png"),
+      );
+    }, this.sendMaskTimeout);
+  }
+}
+
+export class SnapshotTaker {
+  constructor(container) {
+    this.stage = new Konva.Stage({
+      container: container,
+    });
+  }
+
+  /**
+   * Convert canvas unit to a base64 black/white mask.
+   * @param {CanvasControlNetUnit} canvasUnit
+   */
+  snapshotUnit(canvasUnit) {
+    this.stage.width(canvasUnit.planner.getGenerationWidth());
+    this.stage.height(canvasUnit.planner.getGenerationHeight());
+    const layer = new Konva.Layer();
+    const rect = new Konva.Rect({
+      fill: "white",
+      x: canvasUnit.getGenerationX(),
+      y: canvasUnit.getGenerationY(),
+      height: canvasUnit.getGenerationHeight(),
+      width: canvasUnit.getGenerationWidth(),
+    });
+    const background = new Konva.Rect({
+      fill: "black",
+      x: 0,
+      y: 0,
+      height: this.stage.height(),
+      width: this.stage.height(),
+    });
+    layer.add(background);
+    layer.add(rect);
+    this.stage.add(layer);
+
+    const dataURL = layer.toDataURL({
+      mimeType: 'image/png',
+      quality: 0.7,
+      pixelRatio: 1,
+    });
+
+    layer.remove();
+    return dataURL;
+  }
 }
 
 export class RegionPlanner {
@@ -121,12 +214,14 @@ export class RegionPlanner {
    * @param {HTMLElement} container
    * @param {Array<ControlNetUnit>} units
    * @param {A1111Context} context
+   * @param {SnapshotTaker} snapshotTaker
    * @param {Number} [size] - Optional.
    */
-  constructor(container, units, context, size) {
+  constructor(container, units, context, snapshotTaker, size) {
     this.container = container;
     this.units = units;
     this.context = context;
+    this.snapshotTaker = snapshotTaker;
     this.size = size || 512;
 
     this.stage = new Konva.Stage({

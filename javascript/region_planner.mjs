@@ -8,6 +8,9 @@ function snapToMultipleOf(input, size) {
   return Math.round(input / size) * size;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(value, max));
+}
 
 class CanvasControlNetUnit {
   /**
@@ -172,12 +175,23 @@ export class RegionPlanner {
 
   boundBoxSnapToGrid(oldBox, newBox) {
     const gridSize = GENERATION_GRID_SIZE * this.getCanvasMappingRatio();
-    newBox.width = snapToMultipleOf(newBox.width, gridSize);
-    newBox.height = snapToMultipleOf(newBox.height, gridSize);
+    const minCanvas = 64 * this.getCanvasMappingRatio();
+    const maxCanvas = 2048 * this.getCanvasMappingRatio();
+    function dimConstraint(value) {
+      return clamp(snapToMultipleOf(value, gridSize), minCanvas, maxCanvas);
+    }
 
-    if (newBox.width < gridSize) newBox.width = gridSize;
-    if (newBox.height < gridSize) newBox.height = gridSize;
+    const adjustedWidth = dimConstraint(newBox.width);
+    const adjustedHeight = dimConstraint(newBox.height);
+    const dw = adjustedWidth - newBox.width;
+    const dh = adjustedHeight - newBox.height;
+    const dx = newBox.x - oldBox.x;
+    const dy = newBox.y - oldBox.y;
 
+    newBox.x = newBox.x - (dx !== 0 ? dw : 0);
+    newBox.y = newBox.y - (dy !== 0 ? dh : 0);
+    newBox.width = adjustedWidth;
+    newBox.height = adjustedHeight;
     return newBox;
   }
 }

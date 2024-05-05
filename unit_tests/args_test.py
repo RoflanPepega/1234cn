@@ -9,7 +9,11 @@ H = W = 128
 
 img1 = np.ones(shape=[H, W, 3], dtype=np.uint8)
 img2 = np.ones(shape=[H, W, 3], dtype=np.uint8) * 2
-ui_img = np.ones(shape=[1, H, W, 4], dtype=np.uint8)
+mask_diff = np.ones(shape=[H - 1, W - 1, 3], dtype=np.uint8) * 2
+img_bad_channel = np.ones(shape=[H, W, 2], dtype=np.uint8) * 2
+img_bad_dim = np.ones(shape=[1, H, W, 3], dtype=np.uint8) * 2
+ui_img_diff = np.ones(shape=[H - 1, W - 1, 4], dtype=np.uint8) * 2
+ui_img = np.ones(shape=[H, W, 4], dtype=np.uint8)
 tensor1 = torch.zeros(size=[1, 1], dtype=torch.float16)
 
 
@@ -20,6 +24,7 @@ def set_cls_funcs():
     ControlNetUnit.cls_decode_base64 = lambda s: {
         "b64img1": img1,
         "b64img2": img2,
+        "b64mask_diff": mask_diff,
     }[s]
     ControlNetUnit.cls_torch_load_base64 = lambda s: {
         "b64tensor1": tensor1,
@@ -81,8 +86,14 @@ def test_valid_image_formats(set_cls_funcs):
     ControlNetUnit(image="b64img1", mask="b64img2")
     ControlNetUnit(image="b64img1")
     ControlNetUnit(image="b64img1", mask_image="b64img2")
-    ControlNetUnit(image=ui_img)
     ControlNetUnit(image=None)
+
+    ControlNetUnit(images=None)
+    ControlNetUnit(images=[])
+    ControlNetUnit(images=[ui_img])
+    ControlNetUnit(images=[ui_img, ui_img])
+    # Images of different dim should be accepted.
+    ControlNetUnit(images=[ui_img, ui_img_diff])
 
 
 @pytest.mark.parametrize(
@@ -97,6 +108,12 @@ def test_valid_image_formats(set_cls_funcs):
         dict(image=None, mask="b64img2"),
         dict(image=img1),  # Wrong shape
         dict(image="b64img1", mask="b64img1", mask_image="b64img1"),
+        dict(images=[img_bad_channel]),
+        dict(images=[img_bad_dim]),
+        # "images" should not be used by API to pass in string.
+        dict(images=["b64img1"]),
+        # image & mask have different H x W
+        dict(image="b64img1", mask="b64mask_diff"),
     ],
 )
 def test_invalid_image_formats(set_cls_funcs, d):

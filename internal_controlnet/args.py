@@ -53,9 +53,27 @@ class ControlNetUnit(BaseModel):
         return value
 
     weight: Annotated[float, Field(ge=0.0, le=2.0)] = 1.0
-    # [B, H, W, 4] RGBA
-    # Optional[np.ndarray]
-    image: Any = None
+    # RGBA images with potentially different size.
+    # Why we cannot have [B, H, W, C=4] here is that calculation of final
+    # resolution requires generation target's dimensions.
+    images: Optional[List[np.ndarray]] = None
+
+    @validator("images", always=True, pre=True)
+    def check_images(cls, value):
+        if value is None:
+            return None
+
+        if not isinstance(value, list):
+            raise ValueError("images should be a list")
+
+        for img in value:
+            if not isinstance(img, np.ndarray):
+                raise ValueError("image is not np array!")
+            if img.ndim != 3:
+                raise ValueError("image should have 3 dim (H, W, C).")
+            if img.shape[2] != 4:
+                raise ValueError("Image should have 4 channels (RGBA).")
+        return value
 
     resize_mode: ResizeMode = ResizeMode.INNER_FIT
     low_vram: bool = False
@@ -161,6 +179,7 @@ class ControlNetUnit(BaseModel):
         assert result, "input cannot be empty"
         return result
 
+    image: Any = None
     mask: Optional[str] = None
     mask_image: Optional[str] = None
 
@@ -188,8 +207,8 @@ class ControlNetUnit(BaseModel):
         - image = (image, mask)
         - image = [{"image": ..., "mask": ...}, {"image": ..., "mask": ...}, ...]
         - image = base64image, mask = base64image
-        UI
-        - image = np.ndarray (B, H, W, 4)
+
+        Note: UI should directly set `images` field.
         """
         init_image = values.get("image")
         init_mask = values.get("mask")
@@ -259,13 +278,13 @@ class ControlNetUnit(BaseModel):
             np_mask = (
                 np.ones_like(np_image) * 255 if mask is None else parse_image(mask)
             )[:, :, 0:1]
+            if np_image.shape[:2] != np_mask.shape[:2]:
+                raise ValueError(
+                    f"image shape ({np_image.shape[:2]}) not aligned with mask shape ({np_mask.shape[:2]})"
+                )
             np_images.append(np.concatenate([np_image, np_mask], axis=2))  # [H, W, 4]
 
-        final_np_image = np.stack(np_images, axis=0)  # [B, H, W, 4]
-        assert final_np_image.ndim == 4
-        assert final_np_image.shape[-1] == 4
-        values["image"] = final_np_image
-
+        values["images"] = np_images
         return values
 
     # UI-only fields
@@ -275,6 +294,7 @@ class ControlNetUnit(BaseModel):
     output_dir: str = ""
     loopback: bool = False
 
+    # TODO change this to a serialization method.
     @staticmethod
     def infotext_excluded_fields() -> List[str]:
         return [
